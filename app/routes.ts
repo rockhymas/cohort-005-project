@@ -49,6 +49,8 @@ export default [
     route("redeem/:code", "routes/redeem.$code.tsx"),
     // PROTOTYPE (issue #22): throwaway Knock spike
     route("prototype/knock", "routes/prototype.knock.tsx"),
+    // PROTOTYPE (issue #30): Notification Feed page variant + sample sender
+    route("notifications", "routes/prototype.notifications.tsx"),
   ]),
   route("signup", "routes/signup.tsx"),
   route("login", "routes/login.tsx"),

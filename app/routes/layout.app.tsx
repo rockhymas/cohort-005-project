@@ -3,6 +3,20 @@ import type { Route } from "./+types/layout.app";
 import { Sidebar } from "~/components/sidebar";
 import { DevUI } from "~/components/dev-ui";
 import { Toaster } from "sonner";
+// PROTOTYPE (issue #30): Notification Feed variants
+import { signUserToken } from "@knocklabs/node";
+import {
+  FeedProvider,
+  BellPopover,
+  FeedNavItem,
+  ActivityRail,
+  SendSamples,
+  FEED_VARIANTS,
+} from "~/components/prototype-notification-feed";
+import {
+  PrototypeSwitcher,
+  usePrototypeVariant,
+} from "~/components/prototype-switcher";
 import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 import { eq, and, or, sql, desc } from "drizzle-orm";
@@ -198,7 +212,20 @@ export async function loader({ request }: Route.LoaderArgs) {
       })
     : [];
 
+  const knock = currentUserId
+    ? {
+        userId: String(currentUserId),
+        token: await signUserToken(String(currentUserId), {
+          signingKey: process.env.KNOCK_SIGNING_KEY,
+          expiresInSeconds: 60 * 60,
+        }),
+        publicKey: process.env.KNOCK_PUBLIC_API_KEY!,
+        channelId: process.env.KNOCK_FEED_CHANNEL_ID!,
+      }
+    : null;
+
   return {
+    knock,
     users: users.map((u) => ({ id: u.id, name: u.name, role: u.role })),
     currentUser: currentUser
       ? {
@@ -225,18 +252,32 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
     countryTierInfo,
     countries,
     isTeamAdmin: userIsTeamAdmin,
+    knock,
   } = loaderData;
+  const variant = usePrototypeVariant(FEED_VARIANTS.map((v) => v.key));
+  const hasFeed = !!knock;
 
   return (
+    <FeedProvider knock={knock}>
     <div className="flex h-screen overflow-hidden">
       <Sidebar
         currentUser={currentUser}
         recentCourses={recentCourses}
         isTeamAdmin={userIsTeamAdmin}
+        headerSlot={hasFeed && variant === "A" ? <BellPopover /> : null}
+        navSlot={hasFeed && variant === "B" ? <FeedNavItem /> : null}
       />
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
+      {hasFeed && variant === "C" && <ActivityRail />}
+      {hasFeed && (
+        <PrototypeSwitcher
+          variants={FEED_VARIANTS}
+          current={variant}
+          extra={<SendSamples />}
+        />
+      )}
       <DevUI
         users={users}
         currentUser={currentUser}
@@ -246,5 +287,6 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
       />
       <Toaster position="bottom-right" richColors closeButton />
     </div>
+    </FeedProvider>
   );
 }
